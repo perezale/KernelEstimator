@@ -10,11 +10,11 @@ import java.util.stream.Collectors;
 
 import weka.estimators.KernelEstimator;
 
-public class MainApp {
+public class Estimador {
 	
 	private KernelEstimator estimator;
 
-	public MainApp(){
+	public Estimador(){
 		estimator = new KernelEstimator(1);		
 		
 	}
@@ -45,12 +45,13 @@ public class MainApp {
 		return estimator.getProbability(x);
 	}
 	
-	public static void run(List<Read> obs){
-		MainApp estimator = new MainApp();
+	public static Estimador run(List<Read> obs){
+		Estimador estimator = new Estimador();
 		for(Read observation : obs){			
 			estimator.addValue(observation.getDistancia(),1);
 		}		
-		estimator.printEq();			
+		estimator.printEq();
+		return estimator;
 	}
 
 	public static void main(String[] args) {
@@ -80,27 +81,33 @@ public class MainApp {
 		//Filter by LAP
 		//obs = obs.stream().filter(r -> r.getLap().contains("349e4a")).collect(Collectors.toList());		
 		
-		List<Read> g50m = obs.stream().filter(r -> r.getSignal()>-60).collect(Collectors.toList());
-		List<Read> g50to60 = obs.stream().filter(r -> r.getSignal()<=-60 && r.getSignal()>-65).collect(Collectors.toList());
-		List<Read> g60to70 = obs.stream().filter(r -> r.getSignal()<=-65 && r.getSignal()>-70).collect(Collectors.toList());
-		List<Read> g70to80 = obs.stream().filter(r -> r.getSignal()<=-70 && r.getSignal()>-75).collect(Collectors.toList());
-		List<Read> g80l = obs.stream().filter(r -> r.getSignal()<=-75).collect(Collectors.toList());
+		List<Read> g60m = obs.stream().filter(r -> r.getSignal()>-60).collect(Collectors.toList());
+		List<Read> g60to65 = obs.stream().filter(r -> r.getSignal()<=-60 && r.getSignal()>-65).collect(Collectors.toList());
+		List<Read> g65to70 = obs.stream().filter(r -> r.getSignal()<=-65 && r.getSignal()>-70).collect(Collectors.toList());
+		List<Read> g70to75 = obs.stream().filter(r -> r.getSignal()<=-70 && r.getSignal()>-75).collect(Collectors.toList());
+		List<Read> g75l = obs.stream().filter(r -> r.getSignal()<=-75).collect(Collectors.toList());
 		
-		MainApp.run(g50m);
-		MainApp.run(g50to60);
-		MainApp.run(g60to70);
-		MainApp.run(g70to80);		
-		MainApp.run(g80l);
+		Estimador estimador60oMayor = Estimador.run(g60m);
+		Estimador estimador60a65 = Estimador.run(g60to65);
+		Estimador estimador65a70 = Estimador.run(g65to70);
+		Estimador estimador70a75 = Estimador.run(g70to75);		
+		Estimador estimador75oMenor = Estimador.run(g75l);
+		
+		//EJEMPLO de  un paso de VITERBI para 1 deteccion de 3 monitores m1, m2, m3
+		//  en un estado S3 (con distancias 55, 75 y 60 a los Monitores m1, m2 y m3)
+		// Selecciono la curva según la señal
+		// signal1 = 69;
+		// signal2= 73;
+				
+		double probabilitym1 = estimador65a70.getProbability(55);
+		double probabilitym2 = estimador70a75.getProbability(75);		
+		double probabilitym3 = 1 - estimador75oMenor.getProbability(60);
+				
+		System.out.println(probabilitym1+"*"+probabilitym2+"*"+probabilitym3+"="+probabilitym1*probabilitym2*probabilitym3);
 		
 		
-		/*
-		for(Entry<Integer, List<Read>> x : grouped.entrySet()){
-			System.out.println(x.getKey());
-			for(Read observation : x.getValue()){
-				System.out.println(observation.toString());
-			}
-		}
-		*/		
 	}
+
+	
 
 }
