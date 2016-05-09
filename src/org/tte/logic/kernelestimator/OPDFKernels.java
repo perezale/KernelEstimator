@@ -13,6 +13,25 @@ public class OPDFKernels {
 	List<Estimador> estimadores;
 	List<Integer> rangos;
 	
+	public List<Read> filterMax(List<Read> obs, int windowSize){
+		int winSize = 10;
+		ArrayList<Read> obsMax = new ArrayList<Read>();		
+		while(!obs.isEmpty()){			
+			Read maxSignal = new Read();
+			maxSignal.setSignal(-99);			
+			for(int i = 0; i < Math.min(obs.size(), winSize); i++){
+				Read read = obs.get(i);
+				if(read.getSignal() > maxSignal.getSignal()){
+					maxSignal = read;					
+				}
+				
+			}
+			obs.subList(0, Math.min(obs.size(),winSize)).clear();			
+			obsMax.add(maxSignal);
+		}	
+		return obsMax;
+	}
+	
 	public OPDFKernels(List<Pair<Integer,Double>> rangosConPeso){
 		System.out.println("Construyendo OPDF...");
 		
@@ -22,27 +41,20 @@ public class OPDFKernels {
 		String pathObs = this.getClass().getClassLoader().getResource("martin-ida.csv").getPath();
 		
 		List<Read> obsOriginal = CsvReader.load(pathObs,',');
-		List<Read> obs = new ArrayList<Read>(obsOriginal);
-				
+		
+		List<Read> obs = DescriptiveStats.removeOutliers(obsOriginal, 20);
+		//List<Read> obs = new ArrayList<Read>(obsOriginal);
 		
 		
-		//Filtro de maxima señal en ventana de 10 elementos
-		ArrayList<Read> obsMax = new ArrayList<Read>();		
-		while(!obs.isEmpty()){			
-			Read maxSignal = new Read();
-			maxSignal.setSignal(-99);			
-			for(int i = 0; i < Math.min(obs.size(), 10); i++){
-				Read read = obs.get(i);
-				if(read.getSignal() > maxSignal.getSignal()){
-					maxSignal = read;					
-				}
-				
-			}
-			obs.subList(0, Math.min(obs.size(),10)).clear();			
-			obsMax.add(maxSignal);
-		}		
+		for(Read r : obs){
+			System.out.println(r.getTiempo()+","+r.getSignal()+","+r.getDistancia());
+		}
 		
-		obs = obsMax;
+		//printMeans(obs);		
+		
+		
+		//Filtro de maxima señal en ventana de 10 elementos				
+		obs = filterMax(obs, 5);
 				
 		for(Pair<Integer, Double> rango : rangosConPeso){
 			this.rangos.add(rango.getLeft());
@@ -62,13 +74,21 @@ public class OPDFKernels {
 			 
 			//Ultimo conjunto, señales menores al rango maximo
 			if(indice == rangosConPeso.size()-1){
-				lecturas = obsOriginal.stream().filter(r -> r.getSignal()<=-rango.getLeft()).collect(Collectors.toList());
+				lecturas = obs.stream().filter(r -> r.getSignal()<=-rango.getLeft()).collect(Collectors.toList());
 				estimadores.add(Estimador.run(lecturas, rango.getRight()));
 			}
 						
 		}
 	}
 	
+	private void printMeans(List<Read> obs) {
+		List<Double[]> means = DescriptiveStats.means(obs);
+		for(Double[] mean : means){
+			System.out.println(mean[0]+","+mean[1]);
+		}
+		
+	}
+
 	public Estimador getEstimador(Integer signal){
 		signal = Math.abs(signal);
 		for(Integer rango : rangos){
@@ -95,9 +115,10 @@ public class OPDFKernels {
 		rangosConPeso.add(Pair.of(60, 1.0));
 		rangosConPeso.add(Pair.of(65, 1.0));
 		rangosConPeso.add(Pair.of(70, 1.0));
-		rangosConPeso.add(Pair.of(75, 0.2));	
+		rangosConPeso.add(Pair.of(75, 1.0));	
 		
 		OPDFKernels opdf = new OPDFKernels(rangosConPeso);
+			
 		
 		//Test
 		List<Estimador> lstEstimadores = opdf.getEstimadores();
