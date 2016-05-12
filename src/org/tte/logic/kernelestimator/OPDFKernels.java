@@ -1,5 +1,6 @@
 package org.tte.logic.kernelestimator;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,24 +14,6 @@ public class OPDFKernels {
 	List<Estimador> estimadores;
 	List<Integer> rangos;
 	
-	public List<Read> filterMax(List<Read> obs, int windowSize){
-		int winSize = 10;
-		ArrayList<Read> obsMax = new ArrayList<Read>();		
-		while(!obs.isEmpty()){			
-			Read maxSignal = new Read();
-			maxSignal.setSignal(-99);			
-			for(int i = 0; i < Math.min(obs.size(), winSize); i++){
-				Read read = obs.get(i);
-				if(read.getSignal() > maxSignal.getSignal()){
-					maxSignal = read;					
-				}
-				
-			}
-			obs.subList(0, Math.min(obs.size(),winSize)).clear();			
-			obsMax.add(maxSignal);
-		}	
-		return obsMax;
-	}
 	
 	public OPDFKernels(List<Pair<Integer,Double>> rangosConPeso){
 		System.out.println("Construyendo OPDF...");
@@ -43,18 +26,17 @@ public class OPDFKernels {
 		List<Read> obsOriginal = CsvReader.load(pathObs,',');
 		
 		List<Read> obs = DescriptiveStats.removeOutliers(obsOriginal, 20);
-		//List<Read> obs = new ArrayList<Read>(obsOriginal);
+		//obs = new ArrayList<Read>(obsOriginal);
 		
+		//Imprime observaciones
+		writeFile(obs);
+		//printReadings(obs);
 		
-		for(Read r : obs){
-			System.out.println(r.getTiempo()+","+r.getSignal()+","+r.getDistancia());
-		}
-		
-		//printMeans(obs);		
+		printMeans(obs);		
 		
 		
 		//Filtro de maxima señal en ventana de 10 elementos				
-		obs = filterMax(obs, 5);
+		//obs = filterMax(obs, 3);
 				
 		for(Pair<Integer, Double> rango : rangosConPeso){
 			this.rangos.add(rango.getLeft());
@@ -78,6 +60,36 @@ public class OPDFKernels {
 				estimadores.add(Estimador.run(lecturas, rango.getRight()));
 			}
 						
+		}
+	}
+	
+	public List<Read> filterMax(List<Read> obs, int windowSize){
+		int winSize = 10;
+		ArrayList<Read> obsMax = new ArrayList<Read>();		
+		while(!obs.isEmpty()){			
+			Read maxSignal = new Read();
+			maxSignal.setSignal(-99);			
+			for(int i = 0; i < Math.min(obs.size(), winSize); i++){
+				Read read = obs.get(i);
+				if(read.getSignal() > maxSignal.getSignal()){
+					maxSignal = read;					
+				}
+				
+			}
+			obs.subList(0, Math.min(obs.size(),winSize)).clear();			
+			obsMax.add(maxSignal);
+		}	
+		return obsMax;
+	}
+	
+	private void writeFile(List<Read> obs) {
+		String filename = "resources/output.csv";			
+		CsvReader.write(filename, ',', obs);		
+	}
+
+	private void printReadings(List<Read> obs) {
+		for(Read r : obs){
+			System.out.println(r.getTiempo()+","+r.getSignal()+","+r.getDistancia());
 		}
 	}
 	
@@ -120,7 +132,8 @@ public class OPDFKernels {
 		OPDFKernels opdf = new OPDFKernels(rangosConPeso);
 			
 		
-		//Test
+		//Para dibujar la PDF en excel
+		if(true) return;
 		List<Estimador> lstEstimadores = opdf.getEstimadores();
 		for(Estimador e : lstEstimadores){
 			List<Double> values = new ArrayList<Double>();

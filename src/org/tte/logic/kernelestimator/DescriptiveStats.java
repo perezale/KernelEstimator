@@ -29,7 +29,7 @@ public class DescriptiveStats {
 		return means;
 	}
 	
-	public static List<Read> removeOutliers(List<Read> readings, double percentage){
+	public static List<Read> removeOutliersByDistance(List<Read> readings, double percentage){
 		//https://gist.github.com/sushain97/6488296
 		Map<Integer, List<Read>> data = readings.stream().collect(Collectors.groupingBy(Read::getDistancia));
 		Map<Integer, List<Read>> output = new HashMap<Integer, List<Read>>();
@@ -46,6 +46,16 @@ public class DescriptiveStats {
 		}
 		
 		return output.values().stream().flatMap(l -> l.stream()).collect(Collectors.toList());
+	}
+	
+	public static List<Read> removeOutliers(List<Read> readings, double percentage){
+		Double[] collect = readings.stream().map(r -> new Double(r.getSignal())).toArray(size -> new Double[size]);
+		DescriptiveStatistics stats = new DescriptiveStatistics(ArrayUtils.toPrimitive(collect));
+		double lowerRef = stats.getPercentile(percentage);
+		double upperRef = stats.getPercentile(100-percentage);
+		List<Read> filtered = readings.stream().filter(lectura -> lectura.getSignal()>lowerRef && lectura.getSignal()<upperRef).collect(Collectors.toList());					
+		
+		return filtered;
 	}
 	
 	private static Pair<List<Integer>, List<Double>> calculateStats(List<Double> list)
