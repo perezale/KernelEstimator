@@ -39,8 +39,8 @@ public class DescriptiveStats {
 			Double[] collect = list.stream().map(r -> new Double(r.getSignal())).toArray(size -> new Double[size]);
 			DescriptiveStatistics stats = new DescriptiveStatistics(ArrayUtils.toPrimitive(collect));
 			double lowerRef = stats.getPercentile(percentage);
-			double upperRef = stats.getPercentile(100-percentage);
-			List<Read> filtered = list.stream().filter(lectura -> lectura.getSignal()>lowerRef && lectura.getSignal()<upperRef).collect(Collectors.toList());					
+			double upperRef = stats.getPercentile(100-percentage);			
+			List<Read> filtered = list.stream().filter(lectura -> lectura.getSignal()>lowerRef && lectura.getSignal()<upperRef).collect(Collectors.toList());			
 			output.put(distance, filtered);
 		
 		}

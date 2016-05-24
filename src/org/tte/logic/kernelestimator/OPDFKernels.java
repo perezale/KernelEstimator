@@ -4,10 +4,13 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
 
 public class OPDFKernels {
 
@@ -25,18 +28,21 @@ public class OPDFKernels {
 		
 		List<Read> obsOriginal = CsvReader.load(pathObs,',');
 		
-		List<Read> obs = DescriptiveStats.removeOutliers(obsOriginal, 20);
+		//List<Read> obs = DescriptiveStats.removeOutliers(obsOriginal, 2);
+		List<Read> obs = DescriptiveStats.removeOutliersByDistance(obsOriginal, 2);
+		
 		//obs = new ArrayList<Read>(obsOriginal);
 		
 		//Imprime observaciones
 		writeFile(obs);
-		//printReadings(obs);
 		
-		printMeans(obs);		
+		//printReadings(obs);		
+		//printMeans(obs);		
 		
 		
 		//Filtro de maxima señal en ventana de 10 elementos				
-		//obs = filterMax(obs, 3);
+		obs = filterMax(obs, 3);
+		//obs = filterMean(obs, 10);
 				
 		for(Pair<Integer, Double> rango : rangosConPeso){
 			this.rangos.add(rango.getLeft());
@@ -57,29 +63,60 @@ public class OPDFKernels {
 			//Ultimo conjunto, señales menores al rango maximo
 			if(indice == rangosConPeso.size()-1){
 				lecturas = obs.stream().filter(r -> r.getSignal()<=-rango.getLeft()).collect(Collectors.toList());
+				System.out.println("Cantidad de lecturas ultimo grupo: "+ lecturas.size());
 				estimadores.add(Estimador.run(lecturas, rango.getRight()));
 			}
 						
 		}
 	}
 	
-	public List<Read> filterMax(List<Read> obs, int windowSize){
-		int winSize = 10;
-		ArrayList<Read> obsMax = new ArrayList<Read>();		
+	/**
+	 * Agrupa observaciones en ventanas de tamaño windowSize y se queda con el maximo
+	 * @param obs List of observations
+	 * @param windowSize Window Size for processing
+	 * @return List of max observations for each window 
+	 */
+	public List<Read> filterMax(List<Read> obs, int windowSize){		
+		ArrayList<Read> obsMax = new ArrayList<Read>();				
 		while(!obs.isEmpty()){			
 			Read maxSignal = new Read();
 			maxSignal.setSignal(-99);			
-			for(int i = 0; i < Math.min(obs.size(), winSize); i++){
+			for(int i = 0; i < Math.min(obs.size(), windowSize); i++){
 				Read read = obs.get(i);
 				if(read.getSignal() > maxSignal.getSignal()){
 					maxSignal = read;					
 				}
 				
 			}
-			obs.subList(0, Math.min(obs.size(),winSize)).clear();			
+			obs.subList(0, Math.min(obs.size(),windowSize)).clear();			
 			obsMax.add(maxSignal);
 		}	
 		return obsMax;
+	}
+	
+	/**
+	 * Agrupa observaciones en ventanas de tamaño windowSize y se queda con la media
+	 * @param obs List of observations
+	 * @param windowSize Window Size for processing
+	 * @return List of mean observations for each window 
+	 */
+	public List<Read> filterMean(List<Read> obs, int windowSize){		
+		ArrayList<Read> obsAvg = new ArrayList<Read>();					
+		while(!obs.isEmpty()){			
+			List<Read> values = new ArrayList<Read>();					
+			for(int i = 0; i < Math.min(obs.size(), windowSize); i++){
+				values.add(obs.get(i));							
+			}
+			obs.subList(0, Math.min(obs.size(),windowSize)).clear();			
+			OptionalDouble average = values.stream().mapToDouble(o -> new Double(o.getSignal())).average();
+			Integer signal = new Double(average.getAsDouble()).intValue();
+			List<Double> distancias = values.stream().map(o -> new Double(o.getDistancia())).collect(Collectors.toList());
+			Mean mean = new Mean();
+			Double mediana = new Double(mean.evaluate(ArrayUtils.toPrimitive(distancias.toArray(new Double[]{}))));
+			Read read = new Read(values.get(0).getTiempo(),values.get(0).getLap(),signal,mediana.intValue());
+			obsAvg.add(read);
+		}	
+		return obsAvg;
 	}
 	
 	private void writeFile(List<Read> obs) {
@@ -124,16 +161,15 @@ public class OPDFKernels {
 
 	public static void main(String[] args){
 		List<Pair<Integer,Double>> rangosConPeso = new ArrayList<Pair<Integer,Double>>();
-		rangosConPeso.add(Pair.of(60, 1.0));
-		rangosConPeso.add(Pair.of(65, 1.0));
-		rangosConPeso.add(Pair.of(70, 1.0));
-		rangosConPeso.add(Pair.of(75, 1.0));	
+		rangosConPeso.add(Pair.of(60, 0.4));
+		rangosConPeso.add(Pair.of(65, 0.4));
+		rangosConPeso.add(Pair.of(70, 0.4));
+		rangosConPeso.add(Pair.of(75, 0.4));	
 		
 		OPDFKernels opdf = new OPDFKernels(rangosConPeso);
 			
 		
-		//Para dibujar la PDF en excel
-		if(true) return;
+		//Para dibujar la PDF en excel		
 		List<Estimador> lstEstimadores = opdf.getEstimadores();
 		for(Estimador e : lstEstimadores){
 			List<Double> values = new ArrayList<Double>();
